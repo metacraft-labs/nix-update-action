@@ -11,6 +11,7 @@ sanitizeInputs() {
   # remove all whitespace
   PACKAGES="${PACKAGES// /}"
   BLACKLIST="${BLACKLIST// /}"
+  UNSTABLE="${UNSTABLE// /}"
 }
 
 determinePackages() {
@@ -28,7 +29,11 @@ updatePackages() {
         continue
     fi
     echo "Updating package '$PACKAGE'."
-    nix-update --flake --commit "$PACKAGE" 1>/dev/null
+    if [[ ",$UNSTABLE," == *",$PACKAGE,"* ]]; then
+        nix-update --flake --commit "$PACKAGE" --version=unstable 1>/dev/null
+    else
+        nix-update --flake --commit "$PACKAGE" 1>/dev/null      
+    fi
   done
 }
 

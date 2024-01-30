@@ -11,6 +11,10 @@ inputs:
     description: 'A list of dependencies, comma separated, to skip from updating.'
     required: false
     default: ''
+  unstable:
+    description: 'A list of packages, comma separated, to update to an unstable version.'
+    required: false
+    default: ''
   branch:
     description: 'The branch of the PR to be created'
     required: false
@@ -71,6 +75,9 @@ inputs:
     description: 'GPG Private Key Passphrase for the GPG Private Key with which to sign the commits in the PR to be created'
     required: false
     default: ''
+  token:
+    description: 'GITHUB_TOKEN or a `repo` scoped Personal Access Token (PAT)'
+    default: ${{ github.token }}
 outputs:
   pull-request-number:
     description: 'The number of the opened pull request'
@@ -128,8 +135,9 @@ runs:
         PATH_TO_FLAKE_DIR: ${{ inputs.path-to-flake-dir }}
     - name: Create PR
       id: create-pr
-      uses: peter-evans/create-pull-request@v4
+      uses: peter-evans/create-pull-request@v5
       with:
+        token: ${{ inputs.token }}
         branch: ${{ inputs.branch }}
         delete-branch: true
         title: ${{ inputs.pr-title }}
