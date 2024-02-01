@@ -12,6 +12,7 @@ sanitizeInputs() {
   PACKAGES="${PACKAGES// /}"
   BLACKLIST="${BLACKLIST// /}"
   UNSTABLE="${UNSTABLE// /}"
+  FROM_BRANCH="${FROM_BRANCH// /}"
 }
 
 determinePackages() {
@@ -31,6 +32,8 @@ updatePackages() {
     echo "Updating package '$PACKAGE'."
     if [[ ",$UNSTABLE," == *",$PACKAGE,"* ]]; then
         nix-update --flake --commit "$PACKAGE" --version=unstable 1>/dev/null
+    else if [[ ",$FROM_BRANCH," == *",$PACKAGE,"* ]]; then
+        nix-update --flake --commit "$PACKAGE" --version=branch 1>/dev/null
     else
         nix-update --flake --commit "$PACKAGE" 1>/dev/null      
     fi
