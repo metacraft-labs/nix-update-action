@@ -15,6 +15,10 @@ inputs:
     description: 'A list of packages, comma separated, to update to an unstable version.'
     required: false
     default: ''
+  from_branch:
+    description: 'A list of packages, comma separated, to update to the latest commit.'
+    required: false
+    default: ''
   branch:
     description: 'The branch of the PR to be created'
     required: false
@@ -128,7 +132,8 @@ runs:
       env:
         PACKAGES: ${{ inputs.packages }}
         BLACKLIST: ${{ inputs.blacklist }}
-        UNSTABLE: ${{ inputs.blacklist }}
+        UNSTABLE: ${{ inputs.unstable }}
+        FROM_BRANCH: ${{ inputs.from_branch }}
         GIT_AUTHOR_NAME: ${{ env.GIT_AUTHOR_NAME }}
         GIT_AUTHOR_EMAIL: ${{ env.GIT_AUTHOR_EMAIL }}
         GIT_COMMITTER_NAME: ${{ env.GIT_COMMITTER_NAME }}
