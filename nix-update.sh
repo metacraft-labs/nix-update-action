@@ -31,11 +31,11 @@ updatePackages() {
     fi
     echo "Updating package '${PACKAGE}'."
     if [[ ",${UNSTABLE}," == *",${PACKAGE},"* ]]; then
-      nix-update --flake --commit "${PACKAGE}" --version=unstable 1>/dev/null
+      nix-update --flake --commit "${PACKAGE}" --version=unstable --override-filename "./packages/${PACKAGE}/default.nix" 1>/dev/null
     elif [[ ",${FROM_BRANCH}," == *",${PACKAGE},"* ]]; then
-      nix-update --flake --commit "${PACKAGE}" --version=branch 1>/dev/null
+      nix-update --flake --commit "${PACKAGE}" --version=branch --override-filename "./packages/${PACKAGE}/default.nix" 1>/dev/null
     else
-      nix-update --flake --commit "${PACKAGE}" 1>/dev/null
+      nix-update --flake --commit "${PACKAGE}" --override-filename "./packages/${PACKAGE}/default.nix" 1>/dev/null
     fi
   done
 }
