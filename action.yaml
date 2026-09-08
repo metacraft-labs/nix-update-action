@@ -89,10 +89,6 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - uses: yaxitech/nix-install-pkgs-action@v3
-      with:
-        packages: "nix-update,jq"
-        inputs-from: nixpkgs
     - name: Import bot's GPG key for signing commits
       if: ${{ inputs.sign-commits == 'true' }}
       id: import-gpg
@@ -127,7 +123,12 @@ runs:
         echo "GIT_COMMITTER_NAME=${{ inputs.git-committer-name }}" >> $GITHUB_ENV
         echo "GIT_COMMITTER_EMAIL=<${{ inputs.git-committer-email }}>" >> $GITHUB_ENV
     - name: Run nix-update
-      run: $GITHUB_ACTION_PATH/nix-update.sh
+      # `nix-update` and `jq` are provided by an ephemeral `nix shell` rather
+      # than installed into a profile first. This keeps the action dependent on
+      # nothing but the `nixpkgs` registry entry that the runner already has.
+      run: |
+        nix shell --accept-flake-config nixpkgs#nix-update nixpkgs#jq \
+          --command "$GITHUB_ACTION_PATH/nix-update.sh"
       shell: bash
       env:
         PACKAGES: ${{ inputs.packages }}
@@ -141,7 +142,7 @@ runs:
         PATH_TO_FLAKE_DIR: ${{ inputs.path-to-flake-dir }}
     - name: Create PR
       id: create-pr
-      uses: peter-evans/create-pull-request@v5
+      uses: peter-evans/create-pull-request@v8
       with:
         token: ${{ inputs.token }}
         branch: ${{ inputs.branch }}
