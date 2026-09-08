@@ -22,6 +22,10 @@ determinePackages() {
   fi
 }
 
+updated=()
+skipped=()
+failed=()
+
 updatePackages() {
   # update packages
   for PACKAGE in ${PACKAGES//,/ }; do
@@ -38,6 +42,7 @@ updatePackages() {
     filename="./packages/${PACKAGE}/default.nix"
     if [[ ! -f "${filename}" ]]; then
       echo "Package '${PACKAGE}' has no ${filename}, skipping."
+      skipped+=("${PACKAGE}")
       continue
     fi
 
@@ -59,23 +64,45 @@ updateOnePackage() {
   local log status=0
   log="$(nix-update --flake --commit "${package}" --override-filename "${filename}" "$@" 2>&1 >/dev/null)" || status=$?
   if [[ ${status} -eq 0 ]]; then
+    updated+=("${package}")
     return 0
   fi
 
-  # A package whose version string nix-update cannot parse is one it can never
-  # update. Report it and move on rather than abandoning every package that
-  # sorts after it -- one unparseable package used to stop the whole run, and
-  # with it the nightly update PR.
-  if [[ "${log}" == *"could not parse the version"* ]]; then
-    echo "Package '${package}' has no parseable version, skipping."
+  # Not every package a flake exposes describes an upstream release. Ones built
+  # from a local path or a generated derivation have no version to parse and no
+  # source URL to re-point, and nix-update can never update them.
+  if [[ "${log}" == *"could not parse the version"* ]] ||
+    [[ "${log}" == *"Could not find a url in the derivations src attribute"* ]]; then
+    echo "Package '${package}' is not version-tracked upstream, skipping."
+    skipped+=("${package}")
     return 0
   fi
 
+  # A package that fails for any other reason is reported, but does not abort
+  # the run: one bad package must not cost every package after it its update,
+  # nor suppress the pull request that carries the ones that did update.
+  echo "::warning::nix-update could not update '${package}'"
   echo "${log}" >&2
-  return "${status}"
+  failed+=("${package}")
+  return 0
+}
+
+reportSummary() {
+  echo "Updated: ${#updated[@]}, skipped: ${#skipped[@]}, failed: ${#failed[@]}."
+  if [[ ${#failed[@]} -gt 0 ]]; then
+    echo "Failed packages: ${failed[*]}"
+  fi
+
+  # Every attempted package failing is not a package problem, it is a broken
+  # environment -- surface that as a failed run rather than an empty PR.
+  if [[ ${#failed[@]} -gt 0 && ${#updated[@]} -eq 0 ]]; then
+    echo "::error::nix-update failed for every package it attempted."
+    return 1
+  fi
 }
 
 enterFlakeFolder
 sanitizeInputs
 determinePackages
 updatePackages
+reportSummary
