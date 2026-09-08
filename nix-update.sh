@@ -29,15 +29,50 @@ updatePackages() {
       echo "Package '${PACKAGE}' is blacklisted, skipping."
       continue
     fi
+
+    # Every package this script can update is defined by a
+    # `./packages/<name>/default.nix` file -- that path is what gets handed to
+    # `--override-filename`. A flake commonly also exposes packages built
+    # inline (test fixtures, image builders, helper scripts); those have no such
+    # file and no upstream version to track, so they are not ours to update.
+    filename="./packages/${PACKAGE}/default.nix"
+    if [[ ! -f "${filename}" ]]; then
+      echo "Package '${PACKAGE}' has no ${filename}, skipping."
+      continue
+    fi
+
     echo "Updating package '${PACKAGE}'."
     if [[ ",${UNSTABLE}," == *",${PACKAGE},"* ]]; then
-      nix-update --flake --commit "${PACKAGE}" --version=unstable --override-filename "./packages/${PACKAGE}/default.nix" 1>/dev/null
+      updateOnePackage "${PACKAGE}" "${filename}" --version=unstable
     elif [[ ",${FROM_BRANCH}," == *",${PACKAGE},"* ]]; then
-      nix-update --flake --commit "${PACKAGE}" --version=branch --override-filename "./packages/${PACKAGE}/default.nix" 1>/dev/null
+      updateOnePackage "${PACKAGE}" "${filename}" --version=branch
     else
-      nix-update --flake --commit "${PACKAGE}" --override-filename "./packages/${PACKAGE}/default.nix" 1>/dev/null
+      updateOnePackage "${PACKAGE}" "${filename}"
     fi
   done
+}
+
+updateOnePackage() {
+  local package="$1" filename="$2"
+  shift 2
+
+  local log status=0
+  log="$(nix-update --flake --commit "${package}" --override-filename "${filename}" "$@" 2>&1 >/dev/null)" || status=$?
+  if [[ ${status} -eq 0 ]]; then
+    return 0
+  fi
+
+  # A package whose version string nix-update cannot parse is one it can never
+  # update. Report it and move on rather than abandoning every package that
+  # sorts after it -- one unparseable package used to stop the whole run, and
+  # with it the nightly update PR.
+  if [[ "${log}" == *"could not parse the version"* ]]; then
+    echo "Package '${package}' has no parseable version, skipping."
+    return 0
+  fi
+
+  echo "${log}" >&2
+  return "${status}"
 }
 
 enterFlakeFolder
